@@ -1,0 +1,2 @@
+// Splunk/KQL detection for anomalous PowerShell
+EventID=4104 AND Powershell AND NOT expected_script
