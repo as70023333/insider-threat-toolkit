@@ -1,2 +1,17 @@
 // Splunk/KQL detection for anomalous PowerShell
-EventID=4104 AND Powershell AND NOT expected_script
+# 1) Suspicious PAT usage: token_authenticated from new external IPs, last 7 days
+index=github_audit sourcetype=github:audit event=token_authenticated
+| eval hour=strftime(_time,"%H")
+| lookup known_corp_ips ip AS src_ip OUTPUT ip AS matched_ip
+| where isnull(matched_ip) AND (hour < 6 OR hour > 20)
+| stats count BY user, src_ip, client_app
+| where count >= 1
+| sort -count
+
+# 2) Mass repo cloning within 1 hour by actor
+index=github_audit sourcetype=github:audit (event=git_clone OR event=archive_download OR event=download_repo)
+| bin _time span=1h
+| stats dc(repo) AS unique_repos, count AS total_actions BY actor, _time
+| where unique_repos >= 10
+| table _time, actor, unique_repos, total_actions
+| sort -unique_repos desc
